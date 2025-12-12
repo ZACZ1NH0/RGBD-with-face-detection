@@ -1,0 +1,36 @@
+# --- 1. Môi trường ảo (Theo yêu cầu) ---
+venv/
+env/
+.venv/
+
+# --- 2. Dữ liệu Runtime (Theo yêu cầu) ---
+# Database người dùng (Chứa vector khuôn mặt -> Bảo mật)
+user_db.pt
+
+# --- 3. Các file Model nặng (Nên ignore vì GitHub giới hạn 100MB) ---
+# Nếu bạn muốn up model lên thì xóa dòng tương ứng đi, 
+# nhưng khuyên dùng Git LFS hoặc Google Drive cho model.
+# *.pth
+# *.pt
+*.onnx
+
+# Ngoại lệ: Nếu bạn muốn giữ lại file midas_src (source code) thì không sao,
+# nhưng file weights (.pt) thì nên ignore.
+
+stable_face_final.pth
+
+# --- 4. Python Cache (Rác hệ thống) ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- 5. Cấu hình IDE (VS Code, PyCharm...) ---
+.idea/
+.vscode/
+*.swp
+
+# --- 6. Các file ảnh test tạm thời (Nếu có) ---
+*.jpg
+*.png
+!static/*.jpg  # Giữ lại ảnh trong folder static nếu đó là icon/logo web
+!static/*.png

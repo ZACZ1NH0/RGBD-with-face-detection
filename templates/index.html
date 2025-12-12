@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>RGB-D Face Recognition</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f2f5; }
+        #container { margin-top: 20px; }
+        video, canvas { border: 2px solid #333; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; margin: 10px; }
+        button:hover { background: #0056b3; }
+        #result { margin-top: 20px; font-size: 20px; font-weight: bold; color: #333; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>📸 Hệ thống Điểm danh RGB-D</h1>
+    
+    <div id="container">
+        <video id="video" width="640" height="480" autoplay></video>
+        <canvas id="canvas" width="640" height="480" class="hidden"></canvas>
+    </div>
+
+    <div>
+        <button id="btn-capture">🔍 Chụp & Nhận diện</button>
+        <button id="btn-register" style="background: #28a745;">📝 Đăng ký Mới</button>
+    </div>
+
+    <div id="result">Đang chờ...</div>
+    <div id="debug-images" style="margin-top:20px; display: flex; justify-content: center; gap: 10px;">
+        <img id="img-rgb" width="320" />
+        <img id="img-depth" width="320" />
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const resultDiv = document.getElementById('result');
+
+        // 1. Mở Webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => { console.error("Lỗi webcam:", err); });
+
+        // 2. Hàm gửi ảnh về Server
+        async function sendImage(endpoint, name = "") {
+            resultDiv.innerText = "⏳ Đang xử lý...";
+            
+            // Vẽ video lên canvas
+            context.drawImage(video, 0, 0, 640, 480);
+            // Lấy dữ liệu ảnh Base64
+            const dataURL = canvas.toDataURL('image/jpeg');
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: dataURL, name: name })
+                });
+                const data = await response.json();
+                
+                resultDiv.innerText = data.message;
+                if (data.rgb_url) document.getElementById('img-rgb').src = data.rgb_url;
+                if (data.depth_url) document.getElementById('img-depth').src = data.depth_url; // Hiển thị ảnh depth server tạo ra
+                
+            } catch (error) {
+                resultDiv.innerText = "❌ Lỗi kết nối Server!";
+                console.error(error);
+            }
+        }
+
+        // 3. Sự kiện nút bấm
+        document.getElementById('btn-capture').onclick = () => sendImage('/identify');
+        
+        document.getElementById('btn-register').onclick = () => {
+            const name = prompt("Nhập tên người cần đăng ký:");
+            if (name) sendImage('/register', name);
+        };
+    </script>
+</body>
+</html>
