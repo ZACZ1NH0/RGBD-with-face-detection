@@ -2,81 +2,278 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>RGB-D Face Recognition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face ID Fusion System</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f0f2f5; }
-        #container { margin-top: 20px; }
-        video, canvas { border: 2px solid #333; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; margin: 10px; }
-        button:hover { background: #0056b3; }
-        #result { margin-top: 20px; font-size: 20px; font-weight: bold; color: #333; }
-        .hidden { display: none; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 20px; color: #00d2ff; }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .video-box, .result-box {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 340px;
+        }
+
+        video, img {
+            width: 100%;
+            border-radius: 10px;
+            border: 2px solid #444;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        input {
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            outline: none;
+            background: #444;
+            color: white;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-reg { background-color: #28a745; color: white; }
+        .btn-reg:hover { background-color: #218838; }
+        
+        .btn-id { background-color: #007bff; color: white; }
+        .btn-id:hover { background-color: #0069d9; }
+
+        .btn-auto {
+            background: linear-gradient(45deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%);
+            color: #444;
+        }
+        .btn-auto:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        #status {
+            margin-top: 15px;
+            font-weight: bold;
+            min-height: 24px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .processing { color: #ffc107; }
+
+        /* Hiệu ứng chớp màn hình khi chụp */
+        @keyframes flash {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .flash-effect {
+            animation: flash 0.2s;
+            border-color: white !important;
+        }
+
+        .progress-bar {
+            width: 100%;
+            background-color: #444;
+            height: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #00d2ff;
+            width: 0%;
+            transition: width 0.3s;
+        }
     </style>
 </head>
 <body>
-    <h1>📸 Hệ thống Điểm danh RGB-D</h1>
-    
-    <div id="container">
-        <video id="video" width="640" height="480" autoplay></video>
-        <canvas id="canvas" width="640" height="480" class="hidden"></canvas>
-    </div>
 
-    <div>
-        <button id="btn-capture">🔍 Chụp & Nhận diện</button>
-        <button id="btn-register" style="background: #28a745;">📝 Đăng ký Mới</button>
-    </div>
+    <h1>🤖 Face ID: RGB + Depth Fusion</h1>
 
-    <div id="result">Đang chờ...</div>
-    <div id="debug-images" style="margin-top:20px; display: flex; justify-content: center; gap: 10px;">
-        <img id="img-rgb" width="320" />
-        <img id="img-depth" width="320" />
+    <div class="container">
+        <div class="video-box">
+            <h3>Camera</h3>
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+            
+            <div class="controls">
+                <input type="text" id="nameInput" placeholder="Nhập tên của bạn...">
+                
+                <button class="btn-auto" onclick="startAutoRegister()">📸 Đăng ký Tự động (20 ảnh)</button>
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-reg" onclick="registerManual()" style="flex: 1; font-size: 12px;">Đăng ký 1 lần</button>
+                    <button class="btn-id" onclick="identify()" style="flex: 1;">🔍 Nhận diện</button>
+                </div>
+            </div>
+            <div id="status">Sẵn sàng</div>
+        </div>
+
+        <div class="video-box">
+            <h3>Depth Vision (AI)</h3>
+            <img id="depthResult" src="https://via.placeholder.com/300x225?text=Depth+Map" alt="Depth Map">
+            <div style="margin-top: 10px; color: #aaa; font-size: 14px;">
+                Ảnh Depth giúp phân biệt người thật và ảnh 2D.
+            </div>
+        </div>
     </div>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
-        const resultDiv = document.getElementById('result');
+        const statusDiv = document.getElementById('status');
+        const depthResult = document.getElementById('depthResult');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
 
-        // 1. Mở Webcam
-        navigator.mediaDevices.getUserMedia({ video: true })
+        // Khởi động Camera
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
             .then(stream => { video.srcObject = stream; })
-            .catch(err => { console.error("Lỗi webcam:", err); });
+            .catch(err => { 
+                statusDiv.innerText = "❌ Không bật được Camera!"; 
+                statusDiv.className = "error";
+            });
 
-        // 2. Hàm gửi ảnh về Server
-        async function sendImage(endpoint, name = "") {
-            resultDiv.innerText = "⏳ Đang xử lý...";
-            
-            // Vẽ video lên canvas
-            context.drawImage(video, 0, 0, 640, 480);
-            // Lấy dữ liệu ảnh Base64
-            const dataURL = canvas.toDataURL('image/jpeg');
+        // Hàm chụp ảnh từ Video -> Base64
+        function captureFrame() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL('image/jpeg');
+        }
 
+        // Hiệu ứng chớp màn hình
+        function flashEffect() {
+            video.classList.add('flash-effect');
+            setTimeout(() => video.classList.remove('flash-effect'), 200);
+        }
+
+        // Gửi Request lên Server
+        async function sendRequest(url, payload) {
             try {
-                const response = await fetch(endpoint, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image: dataURL, name: name })
+                    body: JSON.stringify(payload)
                 });
-                const data = await response.json();
-                
-                resultDiv.innerText = data.message;
-                if (data.rgb_url) document.getElementById('img-rgb').src = data.rgb_url;
-                if (data.depth_url) document.getElementById('img-depth').src = data.depth_url; // Hiển thị ảnh depth server tạo ra
-                
+                return await response.json();
             } catch (error) {
-                resultDiv.innerText = "❌ Lỗi kết nối Server!";
                 console.error(error);
+                return { status: 'error', message: 'Lỗi kết nối Server!' };
             }
         }
 
-        // 3. Sự kiện nút bấm
-        document.getElementById('btn-capture').onclick = () => sendImage('/identify');
-        
-        document.getElementById('btn-register').onclick = () => {
-            const name = prompt("Nhập tên người cần đăng ký:");
-            if (name) sendImage('/register', name);
-        };
+        // --- CHỨC NĂNG ĐĂNG KÝ TỰ ĐỘNG (AUTO REGISTER) ---
+        async function startAutoRegister() {
+            const name = document.getElementById('nameInput').value;
+            if (!name) {
+                alert("Vui lòng nhập tên trước!");
+                return;
+            }
+
+            const TOTAL_SHOTS = 20;
+            const DELAY_MS = 800; // Thời gian nghỉ giữa các lần chụp (ms)
+
+            statusDiv.className = "processing";
+            progressBar.style.display = "block";
+            
+            // Khóa nút bấm
+            document.querySelector('.btn-auto').disabled = true;
+
+            for (let i = 1; i <= TOTAL_SHOTS; i++) {
+                statusDiv.innerText = `📸 Đang chụp ảnh ${i}/${TOTAL_SHOTS}... Hơi nghiêng đầu nhé!`;
+                flashEffect();
+
+                const imageBase64 = captureFrame();
+                
+                // Gửi ảnh lên server
+                const result = await sendRequest('/register', { name: name, image: imageBase64 });
+
+                // Cập nhật thanh tiến trình
+                progressFill.style.width = `${(i / TOTAL_SHOTS) * 100}%`;
+
+                if (result.status !== 'success') {
+                    statusDiv.innerText = `❌ Lỗi ở ảnh ${i}: ${result.message}`;
+                    break; // Dừng nếu lỗi
+                }
+
+                // Đợi một chút để người dùng kịp quay đầu
+                if (i < TOTAL_SHOTS) {
+                    await new Promise(r => setTimeout(r, DELAY_MS));
+                }
+            }
+
+            statusDiv.innerText = `✅ Đã đăng ký xong ${name} với ${TOTAL_SHOTS} góc mặt!`;
+            statusDiv.className = "success";
+            
+            // Mở lại nút bấm
+            document.querySelector('.btn-auto').disabled = false;
+            setTimeout(() => { progressBar.style.display = "none"; progressFill.style.width = "0%"; }, 3000);
+        }
+
+        // Đăng ký thủ công (1 lần)
+        async function registerManual() {
+            const name = document.getElementById('nameInput').value;
+            if (!name) return alert("Nhập tên đi bạn ơi!");
+            
+            statusDiv.innerText = "Đang xử lý...";
+            const img = captureFrame();
+            const res = await sendRequest('/register', { name: name, image: img });
+            
+            statusDiv.innerText = res.message;
+            statusDiv.className = res.status === 'success' ? "success" : "error";
+        }
+
+        // Nhận diện
+        async function identify() {
+            statusDiv.innerText = "Đang nhận diện...";
+            statusDiv.className = "processing";
+            flashEffect();
+
+            const img = captureFrame();
+            const res = await sendRequest('/identify', { image: img });
+
+            statusDiv.innerText = res.message;
+            statusDiv.className = res.message.includes("✅") ? "success" : "error";
+            
+            if (res.depth_url) {
+                depthResult.src = res.depth_url;
+            }
+        }
     </script>
 </body>
 </html>
