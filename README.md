@@ -46,7 +46,7 @@ flask_face_app/
 ├── templates/
 │   └── index.html          # Giao diện Web
 └── static/
-
+```
 ## Cài đặt
 ### Tạo môi trường ảo với Python 3.11 (nếu chưa tạo)
 
